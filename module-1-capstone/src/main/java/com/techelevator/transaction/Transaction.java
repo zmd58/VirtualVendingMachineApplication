@@ -1,52 +1,62 @@
-package com.techelevator.transaction;
+package com.techelevator.Transaction;
 
-import com.techelevator.item.Item;
-
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
+import com.techelevator.Inventory.Item;
 
+/*
+    This class is an abstract class which is the parent class and a blueprint for
+    FeedTransaction, PurchaseTransaction, and FinishTransaction
+ */
 public abstract class Transaction {
-    private LocalDateTime date;
-    private BigDecimal preBalance;
-    private BigDecimal balance;
-    private BigDecimal transactionAmount;
-    private Item item;
+    private double balance;
+    private double previousBalance;
+    private double transactionAmount; // holds either feed amount or item's cost
+    private LocalDateTime dateAndTime;
+    private Map.Entry<String, Item> item;
 
-    public Transaction(LocalDateTime date, BigDecimal preBalance, BigDecimal transactionAmount, Item item) {
-        this.date = date;
-        this.preBalance = preBalance;
-        this.balance = preBalance.subtract(transactionAmount);
-        this.transactionAmount = transactionAmount;
+
+    // constructor
+    public Transaction(LocalDateTime dateAndTime, double previousBalance, Map.Entry<String, Item> item) {
+        this.dateAndTime = dateAndTime;
+        this.previousBalance = previousBalance;
         this.item = item;
     }
 
-    public Transaction(LocalDateTime date, BigDecimal preBalance, BigDecimal transactionAmount) {
-        this.date = date;
-        this.preBalance = preBalance;
-        this.balance = preBalance.add(transactionAmount);
+    public Transaction(LocalDateTime dateAndTime, double previousBalance, double transactionAmount) {
+        this.dateAndTime = dateAndTime;
+        this.previousBalance = previousBalance;
         this.transactionAmount = transactionAmount;
     }
 
-    public BigDecimal getBalance() {
-        return balance;
+
+    // method
+    // this method is to indicate what type of transaction it is
+    public abstract String getTransactionType();
+
+
+    // getter & setter
+    public double getPreviousBalance() {
+        return previousBalance;
     }
 
-    public LocalDateTime getDate() {
-        return date;
-    }
-
-    public BigDecimal getPreBalance() {
-        return preBalance;
-    }
-
-    public BigDecimal getTransactionAmount() {
+    public double getTransactionAmount() {
         return transactionAmount;
     }
 
-    public Item getItem() {
+    public LocalDateTime getDateAndTime() {
+        return dateAndTime;
+    }
+
+    public Map.Entry<String, Item> getItem() {
         return item;
     }
 
-    public abstract String transactionType();
+    public void setBalance(double balance) {
+        this.balance = balance;
+    }
 
+    public double getBalance() {
+        return balance;
+    }
 }

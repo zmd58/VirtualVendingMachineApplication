@@ -1,242 +1,196 @@
 package com.techelevator;
 
-import com.techelevator.customexception.NotEnoughMoneyException;
-import com.techelevator.customexception.SoldOutException;
-import com.techelevator.customer.Customer;
-import com.techelevator.transaction.Feed;
-import com.techelevator.transaction.Purchase;
-import com.techelevator.transaction.Transaction;
-import com.techelevator.item.*;
+import com.techelevator.CustomENUM.Coins;
+import com.techelevator.CustomExceptions.InsufficientFundsException;
+import com.techelevator.CustomExceptions.SoldOutException;
+import com.techelevator.Customer.Customer;
+import com.techelevator.Features.Restock;
+import com.techelevator.Features.UpdateQuantity;
+import com.techelevator.Inventory.Item;
+import com.techelevator.Reports.Log;
+import com.techelevator.Reports.SalesReport;
+import com.techelevator.Transaction.*;
+import com.techelevator.view.CustomMenu;
 import com.techelevator.view.Menu;
+import com.techelevator.Features.CurrencyReturnSystem;
 
-import java.io.*;
-import java.math.BigDecimal;
-import java.text.DateFormat;
-import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
+import java.io.File;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Map;
+import java.util.Scanner;
+import com.techelevator.VendingMachine.VendingMachine;
 
+import java.text.NumberFormat;
+
+/*
+    VendingMachineCLI is the Main class
+    Contains main method that call on run() to generate a Customer and a VendingMachine
+ */
 public class VendingMachineCLI {
+    private static final String MAIN_MENU_OPTION_DISPLAY_ITEMS = "Display Vending Machine Items";
+    private static final String MAIN_MENU_OPTION_PURCHASE = "Make Purchase";
+    private static final String MAIN_MENU_OPTION_EXIT = "Exit";
+    private static final String MAIN_MENU_SECRET_SALES_REPORT = "Get Sale Report";
+    private static final String[] MAIN_MENU_OPTIONS = {MAIN_MENU_OPTION_DISPLAY_ITEMS,
+            MAIN_MENU_OPTION_PURCHASE, MAIN_MENU_OPTION_EXIT, MAIN_MENU_SECRET_SALES_REPORT};
+    private static final String PURCHASE_MENU_OPTION_FEED = "Feed Money";
 
-	private static final String MAIN_MENU_OPTION_DISPLAY_ITEMS = "Display Vending Machine Items";
-	private static final String MAIN_MENU_OPTION_PURCHASE = "Purchase";
-	private static final String EXIT = "Exit";
-	private static final String[] MAIN_MENU_OPTIONS = { MAIN_MENU_OPTION_DISPLAY_ITEMS, MAIN_MENU_OPTION_PURCHASE, EXIT };
-	final String PURCHASE_MENU_FEED_MONEY = "Feed Money";
-	final String PURCHASE_MENU_SELECT_PRODUCT = "Select Product";
-	final String PURCHASE_MENU_FINISH_TRANSACTION = "Finish Transaction";
-	final String[] PURCHASE_MENU_OPTIONS = { PURCHASE_MENU_FEED_MONEY, PURCHASE_MENU_SELECT_PRODUCT, PURCHASE_MENU_FINISH_TRANSACTION };
+    private static final String PURCHASE_MENU_OPTION_PURCHASE = "Select Product";
 
-	private Menu menu;
-	private NumberFormat currency = NumberFormat.getCurrencyInstance();
-	private Customer customer = new Customer();
-	private List<Item> items = new ArrayList<>();
-	private File in = new File("test.txt");
-	private File log = new File("log.txt");
+    private static final String PURCHASE_MENU_OPTION_FINISH = "Finish Transaction";
 
-	public VendingMachineCLI(Menu menu) {
-		this.menu = menu;
-	}
+    private static final String[] PURCHASE_MENU_OPTIONS = {PURCHASE_MENU_OPTION_FEED, PURCHASE_MENU_OPTION_PURCHASE, PURCHASE_MENU_OPTION_FINISH};
+    private final CustomMenu customMenu = new CustomMenu(System.in, System.out);
+    private final NumberFormat currency = NumberFormat.getCurrencyInstance();
+    private File saleReportFile = new File("SalesReport.txt");
+    private File inputFile = new File("input.txt");
+    private final VendingMachine vm = new VendingMachine();
+    private final Customer customer = new Customer();
 
-	public static void main(String[] args) {
-		Menu menu = new Menu(System.in, System.out);
-		VendingMachineCLI cli = new VendingMachineCLI(menu);
-		cli.restock();
-		cli.run();
-	}
 
-	public void run() {
-		while (true) {
-			String choice = (String) menu.getChoiceFromOptions(MAIN_MENU_OPTIONS);
+    // main method
+    public static void main(String[] args) {
+        VendingMachineCLI cli = new VendingMachineCLI();
+        cli.run();
+    }
 
-			if (choice.equals(MAIN_MENU_OPTION_DISPLAY_ITEMS)) {
-				displayItem();
-			} else if (choice.equals(MAIN_MENU_OPTION_PURCHASE)) {
-				displayPurchase();
-			} else if (choice.equals(EXIT)) {
-				break;
-			}
-		}
-	}
+    // method
+    // display the main menu
+    public void run() {
+        // initialize all stock when starting with max of 5 quantity for each item
+        Restock initializeStock = new Restock();
+        initializeStock.restockAllItems(vm, inputFile);
 
-	//-------------------------GENERATE ITEMS----------------------------------------------------------------------------
+        System.out.printf("\n%s\n", "Welcome to our virtual vending machine!");
+        // while (true) to re-loop for customer choice
+        while (true) {
+            // get user choice from menu
+            String choice = (String) customMenu.getChoiceFromOptionsWithSaleReport(MAIN_MENU_OPTIONS);
 
-	private void generateItemArray(File pathIn) {
-		items.clear();
-		try (Scanner scanFile = new Scanner(pathIn)) {
-			while (scanFile.hasNextLine()) {
-				String temp = scanFile.nextLine();
-				String[] line = temp.split("\\|");
-				Item item = null;
-				switch (line[3].toLowerCase()) {
-					case "candy":
-						item = new Candy(line[0], line[1], new BigDecimal(line[2]), line[3], Integer.parseInt(line[4]));
-						items.add(item);
-						break;
-					case "chip":
-						item = new Chip(line[0], line[1], new BigDecimal(line[2]), line[3], Integer.parseInt(line[4]));
-						items.add(item);
-						break;
-					case "gum":
-						item = new Gum(line[0], line[1], new BigDecimal(line[2]), line[3], Integer.parseInt(line[4]));
-						items.add(item);
-						break;
-					case "drink":
-						item = new Drink(line[0], line[1], new BigDecimal(line[2]), line[3], Integer.parseInt(line[4]));
-						items.add(item);
-						break;
-				}
-			}
-		} catch (FileNotFoundException e) {
-			System.out.println(e.getMessage());
-		}
-	}
+            if (choice.equals(MAIN_MENU_OPTION_DISPLAY_ITEMS)) {
+                // display vending machine items
+                displayItems(vm);
+            } else if (choice.equals(MAIN_MENU_OPTION_PURCHASE)) {
+                // calls on the displayPurchaseMenu() method that shows options for #2
+                displayPurchaseMenu(customer);
+            } else if (choice.equals(MAIN_MENU_OPTION_EXIT)) {
+                System.out.println("Thank you for using our vending machine!");
+                System.out.println("Have a great day.");
+                break;
+            } else if (choice.equals(MAIN_MENU_SECRET_SALES_REPORT)) {
+                // list item and get user input, handle purchase
+                SalesReport report = new SalesReport();
+                report.getReport(customer, inputFile, saleReportFile);
+                System.out.println("Sale report was made");
+            }
+        }
+    }
 
-	//-------------------------DISPLAY----------------------------------------------------------------------------
+    // display the purchase menu
+    public void displayPurchaseMenu(Customer customer) {
+        while (true) {
+            Menu menu = new Menu(System.in, System.out);
+            System.out.println("\nCurrent Money Balance: " + currency.format(customer.getBalance()));
+            String choice = (String) menu.getChoiceFromOptions(PURCHASE_MENU_OPTIONS);
 
-	public void displayItem() {
-		for (Item item : items) {
-			if (item.getQuantity() == 0) {
-				System.out.println(item.getSlotLocation() + " | " + item.getProductName() + " | " + currency.format(item.getPrice()) + " | Qt. " + "SOLD OUT");
-			} else {
-				System.out.println(item.getSlotLocation() + " | " + item.getProductName() + " | " + currency.format(item.getPrice()) + " | Qt. " + item.getQuantity());
-			}
-		}
-	}
+            if (choice.equals(PURCHASE_MENU_OPTION_FEED)) {
+                // display vending machine items
+                // while (true) to re-loop for customer choice if it was invalid
+                while (true) {
+                    try {
+                        System.out.print("Please Enter Money: ");
+                        // obtain user input
+                        Scanner userInput = new Scanner(System.in);
+                        double customerAmountEntered = Double.parseDouble(userInput.nextLine());
+                        // call on feedMoney method from below
+                        feedMoney(customer, customerAmountEntered);
+                        break;
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid Entry: Please Enter A Number");
+                    }
+                }
+            } else if (choice.equals(PURCHASE_MENU_OPTION_PURCHASE)) {
+                // call on makePurchase method from below
+                makePurchase(customer,vm);
+            } else if (choice.equals(PURCHASE_MENU_OPTION_FINISH)) {
+                // call on finishPurchase from below
+                finishPurchase(customer);
+                break;
+            }
+        }
+    }
 
-	public void displayPurchase() {
-		while (true) {
-			System.out.println("\nCurrent Money Balance: " + currency.format(customer.getBalance()));
-			String choice = (String) menu.getChoiceFromOptions(PURCHASE_MENU_OPTIONS);
-			if (choice.equals(PURCHASE_MENU_FEED_MONEY)) {
-				feed();
-			} else if (choice.equals(PURCHASE_MENU_SELECT_PRODUCT)) {
-				purchase(menu);
-			} else if (choice.equals(PURCHASE_MENU_FINISH_TRANSACTION)) {
-				finish();
-				break;
-			}
-		}
-	}
+    // create a feed transaction and add to the customer then log the transaction
+    public void feedMoney(Customer customer, double customerAmountEntered) {
+        Transaction feed = new FeedTransaction(LocalDateTime.now(), customer.getBalance(), customerAmountEntered);
+        customer.updateCustomerBalance(feed);
+        Log log = new Log();
+        log.logTransaction(feed);
+    }
 
-	//-------------------------FEED, PURCHASE, FINISH----------------------------------------------------------------------------
+    // check if balance is sufficient and quantity is available then create a transaction
+    // display associated message
+    // add transaction and update customer balance and log transaction
+    public void makePurchase(Customer customer, VendingMachine vm) {
+        //buying process
+        try {
+            // display items & Make Selection
+            Map.Entry<String, Item> userChoice = customMenu.getChoiceFromOptions(vm.getItemBySlot());
+            // returns errors if out of stock or not enough money
+            if (customer.getBalance() < userChoice.getValue().getPrice()) {
+                System.out.println("\nYou need " + currency.format(userChoice.getValue().getPrice() - customer.getBalance())
+                        + " in order to purchase this item.");
+                throw new InsufficientFundsException();
+            }
+            if (vm.getItemBySlot().get(userChoice.getKey()).getQuantity() == 0) {
+                throw new SoldOutException();
+            }
+            if (customer.getBalance() >= userChoice.getValue().getPrice() && vm.getItemBySlot().get(userChoice.getKey()).getQuantity() > 0) {
+                Transaction purchase = new PurchaseTransaction(LocalDateTime.now(), customer.getBalance(), userChoice);
+                // update customer balance
+                customer.updateCustomerBalance(purchase);
+                // updates stock
+                UpdateQuantity update = new UpdateQuantity();
+                update.updateItemQuantity(vm, userChoice);
+                // display product name, price, remaining balance, and associated message
+                System.out.println("\n" + userChoice.getValue().getProductName()
+                        + " | "
+                        + currency.format(userChoice.getValue().getPrice()));
+                System.out.println("Remaining Balance: " + currency.format(customer.getBalance()));
+                System.out.println(userChoice.getValue().getMessage() + "\n");
+                Log log = new Log();
+                log.logTransaction(purchase);
+            }
+        } catch (InsufficientFundsException ife) {
+            System.out.println("You do not have enough money, please insert more!");
+        } catch (SoldOutException soe) {
+            System.out.println("Item Sold Out! Please choose another option.");
+        }
+    }
 
-	public void feed() {
-		System.out.print("Enter Amount To Be Added: ");
-		Scanner scan = new Scanner(System.in);
-		BigDecimal transactionAmount = new BigDecimal(scan.nextLine());
-		Transaction feed = new Feed(LocalDateTime.now(), customer.getBalance(), transactionAmount);
-		customer.feedMoney(feed);
-		logging(feed);
-	}
+    // create a transaction to update balance to 0 while dispersing with item name and cost
+    // return money in change/coins with remaining balance and log transaction
+    public void finishPurchase(Customer customer) {
+        CurrencyReturnSystem crs = new CurrencyReturnSystem();
+        Transaction finish = new FinishTransaction(LocalDateTime.now(), customer.getBalance(), customer.getBalance());
+        crs.moneyReturn(customer.getBalance());
+        CurrencyReturnSystem returnMoney = new CurrencyReturnSystem();
+        Map<Coins, Integer> result = returnMoney.moneyReturn(customer.getBalance());
+        System.out.println("Here is your change!");
+        System.out.printf("Quarter %d | Dime %d | Nickel %d | Penny %d\n",
+                result.get(Coins.QUARTER), result.get(Coins.DIME),
+                result.get(Coins.NICKEL), result.get(Coins.PENNY));
+        customer.updateCustomerBalance(finish);
+        Log log = new Log();
+        log.logTransaction(finish);
+    }
 
-	public void purchase(Menu menu) {
-		try {
-			generateItemArray(in);
-			System.out.println("\nCurrent Money Balance: " + currency.format(customer.getBalance()));
-			Item choice = menu.getChoiceFromOptionsCustom(items);
-			if (choice.getQuantity() == 0) {
-				throw new SoldOutException();
-			}
-			if (customer.getBalance().compareTo(choice.getPrice()) == -1) {
-				throw new NotEnoughMoneyException();
-			}
-			Transaction purchase = new Purchase(LocalDateTime.now(), customer.getBalance(), choice.getPrice(), choice);
-			customer.purchaseItem(purchase);
-			updateStock(choice);
-			generateItemArray(in);
-			System.out.println("Selected: " + choice.getProductName() + " | Cost: " + currency.format(choice.getPrice()));
-			System.out.println("Remaining balance: " + currency.format(customer.getBalance()));
-			choice.message();
-			logging(purchase);
-		} catch (SoldOutException e) {
-			System.out.println("Item is SOLD OUT");
-		} catch (NotEnoughMoneyException e) {
-			System.out.println("Not enough MONEY");
-		}
-	}
-
-	public void finish() {
-		int totalPenny = customer.getBalance().multiply(new BigDecimal(100)).intValue();
-		int quarter = 0;
-		int dime = 0;
-		int nickle = 0;
-		int penny = 0;
-		while (!(totalPenny == 0)) {
-			if (totalPenny >= 25) {
-				quarter++;
-				totalPenny -= 25;
-			} else if (totalPenny >= 10) {
-				dime++;
-				totalPenny -= 10;
-			} else if (totalPenny >= 5) {
-				nickle++;
-				totalPenny -= 5;
-			} else if (totalPenny >= 1) {
-				penny++;
-				totalPenny -= 1;
-			}
-		}
-		System.out.println("\nReturning: " + quarter + " Quarter" + " | " + dime + " Dime" + " | "
-				+ nickle + " Nickle" + " | " + penny + " Penny");
-		customer.setBalance(BigDecimal.ZERO);
-	}
-
-	//-------------------------LOG----------------------------------------------------------------------------
-
-	public void logging(Transaction t) {
-		try (
-				PrintWriter out = new PrintWriter(new FileOutputStream("log.txt", true))
-				){
-			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyy KK:mm:ss a");
-			if (t.transactionType().equalsIgnoreCase("purchase")) {
-				out.println(t.getDate().format(formatter) + " "
-						+ t.getItem().getProductName() + " " + t.getItem().getSlotLocation()
-						+ " " + currency.format(t.getTransactionAmount()) + " "
-						+ currency.format(t.getBalance()));
-			} else {
-				out.println(t.getDate().format(formatter) + " "
-						+ t.transactionType() + " " + currency.format(t.getTransactionAmount()) + " "
-						+  currency.format(t.getBalance()));
-			}
-		} catch (IOException e) {
-			System.out.println(e.getMessage());
-		}
-	}
-
-	//-------------------------UPDATE STOCK----------------------------------------------------------------------------
-
-	public void updateStock(Item item) {
-		try (
-				PrintWriter output = new PrintWriter(new FileOutputStream(in, false))
-		){
-			for (Item i : items) {
-				if (i.getSlotLocation().equals(item.getSlotLocation())) {
-					output.println(i.getSlotLocation() + "|" + i.getProductName() + "|" + i.getPrice() + "|" + i.getItemType() + "|" + (i.getQuantity() - 1));
-				} else {
-					output.println(i.getSlotLocation() + "|" + i.getProductName() + "|" + i.getPrice() + "|" + i.getItemType() + "|" + 5);
-				}
-			}
-		} catch (IOException e) {
-			System.out.println(e.getMessage());
-		}
-	}
-
-	//-------------------------RESTOCK----------------------------------------------------------------------------
-
-	public void restock() {
-		generateItemArray(in);
-		try (
-				PrintWriter output = new PrintWriter(new FileOutputStream(in, false))
-		){
-			for (Item item : items) {
-				output.println(item.getSlotLocation() + "|" + item.getProductName() + "|" + item.getPrice() + "|" + item.getItemType() + "|" + 5);
-			}
-		} catch (IOException e) {
-			System.out.println(e.getMessage());
-		}
-	}
+    // call to display all items from the items map within the vending machine object
+    public void displayItems(VendingMachine vm) {
+        for (var item : vm.getItemBySlot().entrySet()) {
+            System.out.printf("%s %s %s\n", item.getKey(), item.getValue().getProductName(),
+                    currency.format(item.getValue().getPrice()));
+        }
+    }
 
 }

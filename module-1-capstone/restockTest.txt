@@ -1,0 +1,4 @@
+A1|Lays|1.50|Chip
+B1|Skittles|1.50|Candy
+C1|Cola|1.50|Drink
+D1|Trident|1.50|Gum
